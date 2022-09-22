@@ -58,6 +58,20 @@ def parse_args():
         required=True,
         help="the second synchronised timestamp",
     )
+    parser.add_argument(
+        "--only-apply-to-start",
+        "--fa",
+        type=lambda arg: srt_timestamp_to_milliseconds(parser, arg),
+        required=False,
+        help="start of desynchronised timestamp want to apply",
+    )
+    parser.add_argument(
+        "--only-apply-to-end",
+        "--ta",
+        type=lambda arg: srt_timestamp_to_milliseconds(parser, arg),
+        required=False,
+        help="end of desynchronised timestamp want to apply",
+    )
     return parser.parse_args()
 
 
@@ -78,8 +92,15 @@ def correct_timedelta(bad_delta, angular, linear):
     return good_delta
 
 
-def linear_correct_subs(subtitles, angular, linear):
+def linear_correct_subs(subtitles, angular, linear, only_apply_to_start=None, only_apply_to_end=None):
+    log.debug("fa = {}, ta = {}".format(only_apply_to_start, only_apply_to_end))
     for subtitle in subtitles:
+        if (only_apply_to_start is not None and \
+            timedelta_to_milliseconds(subtitle.start) < only_apply_to_start) or \
+           (only_apply_to_end is not None and \
+            timedelta_to_milliseconds(subtitle.end) > only_apply_to_end):
+            yield subtitle
+            continue
         subtitle.start = correct_timedelta(subtitle.start, angular, linear)
         subtitle.end = correct_timedelta(subtitle.end, angular, linear)
         yield subtitle
@@ -91,8 +112,9 @@ def main():
     angular, linear = calc_correction(
         args.to_start, args.to_end, args.from_start, args.from_end
     )
+    log.debug("angular = {}, linear = {}".format(angular, linear))
     srt_tools.utils.set_basic_args(args)
-    corrected_subs = linear_correct_subs(args.input, angular, linear)
+    corrected_subs = linear_correct_subs(args.input, angular, linear, only_apply_to_start=args.only_apply_to_start, only_apply_to_end=args.only_apply_to_end)
     output = srt_tools.utils.compose_suggest_on_fail(corrected_subs, strict=args.strict)
 
     try:
