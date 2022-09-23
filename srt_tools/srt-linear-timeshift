@@ -76,7 +76,12 @@ def parse_args():
 
 
 def calc_correction(to_start, to_end, from_start, from_end):
-    angular = (to_end - to_start) / (from_end - from_start)
+    delta_to = to_end - to_start
+    delta_from = from_end - from_start
+    if delta_to == 0 and delta_from == 0:
+        angular = 1
+    else:
+        angular = delta_to / delta_from
     linear = to_end - angular * from_end
     return angular, linear
 
